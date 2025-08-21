@@ -7,16 +7,20 @@ app = Flask(__name__)
 
 @app.route("/studybuddy/search", methods=["POST"])
 def studybuddy_search():
-    auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer ") or auth.split(" ", 1)[1] != os.environ["ACTION_API_KEY"]:
-        return jsonify({"error": "Unauthorized"}), 401
-
+    # ✅ Log request source and payload
+    print("📥 /studybuddy/search hit")
+    
     data = request.get_json(force=True)
     query = (data.get("query") or "").strip()
+
     if not query:
-        return jsonify({"error": "Missing query"}), 400
+        return jsonify({"error": "Missing 'query'"}), 400
+
+    # ✅ Log the query
+    print(f"🔍 Received query: {query}")
 
     try:
+        # ✅ Run the actual OpenAI Responses API call with file_search
         response = client.responses.create(
             model="gpt-4o",
             input=[
@@ -30,7 +34,19 @@ def studybuddy_search():
                 }
             },
         )
-        text = response.output_text or "(no content)"
+
+        # ✅ Grab the result
+        text = response.output_text or "(no content returned)"
         return jsonify({"answer": text})
+
     except Exception as e:
-        return jsonify({"error": str(e)}), 502
+        print("❌ Error during OpenAI call:", str(e))
+        return jsonify({
+            "error": "Upstream failure",
+            "detail": str(e)
+        }), 502
+
+# Optional health route
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok"})
